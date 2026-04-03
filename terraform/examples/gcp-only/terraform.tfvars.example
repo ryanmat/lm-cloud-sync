@@ -1,0 +1,7 @@
+# Example terraform.tfvars file
+# Copy this to terraform.tfvars and fill in your values
+
+lm_company                   = "your-company"
+lm_bearer_token              = "your-bearer-token"
+lm_parent_group_id           = 1
+gcp_service_account_key_path = "/path/to/service-account.json"

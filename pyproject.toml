@@ -1,0 +1,106 @@
+[project]
+name = "lm-cloud-sync"
+version = "2.0.7"
+description = "Multi-cloud automation tool for LogicMonitor integrations. GCP and Azure support available, AWS coming soon."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Ryan Matuszewski", email = "rmmatuszewski@gmail.com" }
+]
+requires-python = ">=3.11"
+keywords = ["logicmonitor", "aws", "azure", "gcp", "cloud", "monitoring", "automation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Monitoring",
+]
+
+dependencies = [
+    "httpx>=0.27.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "pyyaml>=6.0",
+    "click>=8.1.0",
+    "rich>=13.0.0",
+    # GCP
+    "google-cloud-resource-manager>=1.10.0",
+    "google-auth>=2.20.0",
+    # AWS
+    "boto3>=1.34.0",
+    # Azure
+    "azure-identity>=1.15.0",
+    "azure-mgmt-subscription>=3.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-httpx>=0.30.0",
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+    "moto[organizations]>=5.0.0",
+]
+
+[project.scripts]
+lm-cloud-sync = "lm_cloud_sync.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/ryanmat/lm-cloud-sync"
+Repository = "https://github.com/ryanmat/lm-cloud-sync"
+Issues = "https://github.com/ryanmat/lm-cloud-sync/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lm_cloud_sync"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "SIM",    # flake8-simplify
+    "PTH",    # flake8-use-pathlib
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["lm_cloud_sync"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = [
+    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+]
+
+[dependency-groups]
+dev = [
+    "boto3-stubs[organizations,sts]>=1.41.5",
+    "types-pyyaml>=6.0.12.20250915",
+]

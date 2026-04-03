@@ -1,0 +1,101 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# uv
+.uv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ruff
+.ruff_cache/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.env
+
+# Service account keys
+*.json
+!package.json
+!tsconfig.json
+
+# Local configuration
+config.local.yaml
+config.local.yml
+*.local.yaml
+*.local.yml
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Claude and LLM files
+.claude/
+.claude*
+CLAUDE.md
+CLAUDE.local.md
+
+# Internal documentation (not for customers)
+docs/python.md
+docs/source-control.md
+docs/using-uv.md
+docs/docker-uv.md
+docs/lessons.md
+
+# Logs
+*.log
+logs/
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+terraform.tfvars
+!terraform.tfvars.example
+*.tfvars
+!*.tfvars.example

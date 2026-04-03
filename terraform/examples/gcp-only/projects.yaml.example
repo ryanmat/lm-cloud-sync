@@ -1,0 +1,10 @@
+# Example projects.yaml file
+# Use this format when loading projects from a YAML file
+
+projects:
+  - project_id: my-gcp-project-1
+    display_name: "Production Project"
+  - project_id: my-gcp-project-2
+    display_name: "Development Project"
+  - project_id: my-gcp-project-3
+    display_name: "Staging Project"

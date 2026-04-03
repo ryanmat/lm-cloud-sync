@@ -1,0 +1,11 @@
+# Example terraform.tfvars for Azure Service Principal setup
+# Copy this file to terraform.tfvars and update values
+
+subscription_ids = [
+  "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy",
+]
+
+application_name         = "LogicMonitor Cloud Integration"
+enable_monitoring_reader = true
+enable_log_analytics     = false
