@@ -276,16 +276,21 @@ sync:
 
 ## Terraform
 
-See [terraform/](./terraform/) for Terraform modules.
+See [terraform/](./terraform/) for Terraform modules (GCP, AWS, Azure).
+Terraform modules use bearer token auth and wrap the Python library via `local-exec` provisioners.
 
 ```hcl
-module "gcp_integration" {
+module "gcp_integrations" {
   source = "github.com/ryanmat/lm-cloud-sync//terraform/modules/gcp"
 
-  lm_company    = "your-company"
-  lm_bearer_token = var.lm_bearer_token
-  gcp_project_id  = "my-project"
-  gcp_sa_key_path = "/path/to/key.json"
+  lm_company                   = "your-company"
+  lm_bearer_token              = var.lm_bearer_token
+  gcp_service_account_key_path = "/path/to/service-account.json"
+
+  projects = [
+    { project_id = "my-project-1", display_name = "Project 1" },
+    { project_id = "my-project-2", display_name = "Project 2" },
+  ]
 }
 ```
 
