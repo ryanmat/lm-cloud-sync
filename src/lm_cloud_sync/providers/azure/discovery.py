@@ -101,8 +101,6 @@ class AzureSubscriptionDiscovery:
             ) from e
         except HttpResponseError as e:
             raise DiscoveryError(f"Azure API error: {e}") from e
-        except Exception as e:
-            raise DiscoveryError(f"Failed to list Azure subscriptions: {e}") from e
 
         # Filter subscriptions
         filtered = []

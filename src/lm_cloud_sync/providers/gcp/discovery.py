@@ -148,7 +148,7 @@ class GCPProjectDiscovery:
         state_name = raw_project.state.name
         if state_name not in ProjectState.__members__:
             logger.warning(
-                "Unknown project state '%s' for project '%s', skipping",
+                "Unknown project state '%s' for project '%s', treating as ACTIVE",
                 state_name,
                 raw_project.project_id,
             )

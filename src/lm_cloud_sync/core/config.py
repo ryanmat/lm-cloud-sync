@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, Field, SecretStr, field_validator, model_validator
+from pydantic import BaseModel, Field, SecretStr, ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from lm_cloud_sync import __version__
@@ -208,7 +208,7 @@ class AzureEnvSettings(BaseSettings):
     azure_client_id: str | None = Field(
         default=None, description="Service Principal client/application ID"
     )
-    azure_client_secret: str | None = Field(
+    azure_client_secret: SecretStr | None = Field(
         default=None, description="Service Principal secret"
     )
     azure_regions: str | None = Field(
@@ -228,16 +228,25 @@ class Settings(BaseModel):
 
     @model_validator(mode="after")
     def validate_auth_credentials(self) -> "Settings":
-        """Validate that appropriate auth credentials are provided."""
+        """Validate and auto-detect auth credentials."""
         lm = self.logicmonitor
 
-        if lm.auth_method == "bearer":
-            if not lm.bearer_token:
-                raise ValueError(
-                    "bearer_token is required when auth_method is 'bearer'. "
-                    "Set LM_BEARER_TOKEN environment variable."
-                )
-        elif lm.auth_method == "lmv1" and (not lm.access_id or not lm.access_key):
+        has_bearer = lm.bearer_token is not None
+        has_lmv1 = lm.access_id is not None and lm.access_key is not None
+
+        # Auto-detect auth_method from available credentials
+        if lm.auth_method == "bearer" and not has_bearer and has_lmv1:
+            lm.auth_method = "lmv1"
+        elif lm.auth_method == "lmv1" and not has_lmv1 and has_bearer:
+            lm.auth_method = "bearer"
+
+        # Validate the (possibly inferred) auth_method
+        if lm.auth_method == "bearer" and not has_bearer:
+            raise ValueError(
+                "No authentication credentials provided. "
+                "Set LM_BEARER_TOKEN or LM_ACCESS_ID + LM_ACCESS_KEY."
+            )
+        elif lm.auth_method == "lmv1" and not has_lmv1:
             raise ValueError(
                 "Both access_id and access_key are required when auth_method is 'lmv1'. "
                 "Set LM_ACCESS_ID and LM_ACCESS_KEY environment variables."
@@ -297,7 +306,7 @@ class Settings(BaseModel):
 
         try:
             return cls.model_validate(config_data)
-        except Exception as e:
+        except ValidationError as e:
             error_msg = str(e)
             if "Field required" in error_msg and "company" in error_msg:
                 raise ConfigurationError("Missing LM_COMPANY environment variable") from e
@@ -328,7 +337,7 @@ class Settings(BaseModel):
 
         try:
             return cls.model_validate(config_data)
-        except Exception as e:
+        except ValidationError as e:
             error_msg = str(e)
             if "Field required" in error_msg and "company" in error_msg:
                 raise ConfigurationError("Missing required field: company") from e
@@ -353,6 +362,8 @@ class Settings(BaseModel):
             lm["access_key"] = env["LM_ACCESS_KEY"]
         if "LM_COMPANY" in env:
             lm["company"] = env["LM_COMPANY"]
+        if "LM_AUTH_METHOD" in env:
+            lm["auth_method"] = env["LM_AUTH_METHOD"]
 
         # GCP
         if "gcp" not in config_data:

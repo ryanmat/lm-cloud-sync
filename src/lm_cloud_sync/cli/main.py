@@ -3,13 +3,12 @@
 
 """Main CLI entry point for lm-cloud-sync."""
 
+import logging
+
 import click
 from rich.console import Console
 
 from lm_cloud_sync import __version__
-from lm_cloud_sync.cli.aws import aws
-from lm_cloud_sync.cli.azure import azure
-from lm_cloud_sync.cli.gcp import gcp
 
 console = Console()
 
@@ -33,21 +32,24 @@ def main(ctx: click.Context, verbose: bool) -> None:
     ctx.ensure_object(dict)
     ctx.obj["verbose"] = verbose
 
+    logging.basicConfig(
+        level=logging.DEBUG if verbose else logging.WARNING,
+        format="%(name)s - %(levelname)s - %(message)s",
+    )
 
-# Register provider commands
-main.add_command(gcp)
-main.add_command(aws)
-main.add_command(azure)
+
+def _register_commands(cli: click.Group) -> None:
+    """Lazily import and register provider CLI commands."""
+    from lm_cloud_sync.cli.aws import aws
+    from lm_cloud_sync.cli.azure import azure
+    from lm_cloud_sync.cli.gcp import gcp
+
+    cli.add_command(gcp)
+    cli.add_command(aws)
+    cli.add_command(azure)
 
 
-@main.group()
-@click.pass_context
-def all(ctx: click.Context) -> None:
-    """Multi-cloud operations (coming soon).
-
-    Sync all cloud providers at once.
-    """
-    console.print("[yellow]Multi-cloud sync coming in Phase 4[/yellow]")
+_register_commands(main)
 
 
 @main.group()
@@ -70,6 +72,7 @@ logicmonitor:
   company: "your-company"  # Your LM portal name
   # Credentials are read from environment variables:
   # LM_BEARER_TOKEN or LM_ACCESS_ID + LM_ACCESS_KEY
+  # Auth method is auto-detected from which credentials are set.
 
 # GCP Configuration
 gcp:

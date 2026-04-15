@@ -99,7 +99,15 @@ cp .env.example .env
 # Edit .env with your credentials
 # LogicMonitor (required for all providers)
 LM_COMPANY=your-company-name
+
+# Option A: Bearer token auth
 LM_BEARER_TOKEN=your-bearer-token
+
+# Option B: LMv1 auth (access ID + access key)
+# LM_ACCESS_ID=your-access-id
+# LM_ACCESS_KEY=your-access-key
+
+# Auth method is auto-detected from which credentials are set.
 
 # GCP (if using GCP provider)
 GCP_SA_KEY_PATH=/path/to/service-account.json
@@ -167,7 +175,6 @@ lm-cloud-sync
 │   ├── sync          # Sync accounts to LM
 │   ├── delete        # Delete an integration
 │   └── resync        # Trigger LM sync engine on existing integrations
-├── all               # Multi-cloud sync (coming soon)
 └── config
     ├── init          # Create config file
     └── validate      # Validate config
@@ -212,9 +219,14 @@ lm-cloud-sync azure sync --delete-orphans --yes
 | Variable | Description |
 |----------|-------------|
 | `LM_COMPANY` | LogicMonitor portal name |
-| `LM_BEARER_TOKEN` | Bearer token for auth* |
+| `LM_BEARER_TOKEN` | Bearer token for auth |
+| `LM_AUTH_METHOD` | Auth method override (`bearer` or `lmv1`). Auto-detected if not set. |
+| `LM_ACCESS_ID` | LMv1 access ID (used when auth method is `lmv1`) |
+| `LM_ACCESS_KEY` | LMv1 access key (used when auth method is `lmv1`) |
 
-*Or use `LM_ACCESS_ID` and `LM_ACCESS_KEY` for LMv1 authentication.
+Auth method is auto-detected from which credentials are set. If `LM_BEARER_TOKEN` is
+present, Bearer auth is used. If `LM_ACCESS_ID` and `LM_ACCESS_KEY` are present, LMv1
+auth is used. Set `LM_AUTH_METHOD` to force a specific method.
 
 **GCP:**
 | Variable | Description |
@@ -303,7 +315,7 @@ uv run lm-cloud-sync --help
 - [x] **v2.0.5**: Azure support with Management API discovery
 - [x] **v2.1.0**: AWS support with Organizations discovery
 - [x] **v2.1.0**: Cloud resync command (triggers LM sync engine via full PUT)
-- [ ] **v3.0.0**: Multi-cloud sync (`lm-cloud-sync all`)
+- [x] **v3.0.0**: Auth auto-detect, exit code fixes, cross-provider consistency, security hardening
 
 ## License
 

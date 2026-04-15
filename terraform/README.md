@@ -2,7 +2,7 @@
 
 Terraform modules for managing LogicMonitor cloud integrations.
 
-**Current Version:** v2.0.7 - Published to PyPI
+**Current Version:** v3.0.0 - Published to PyPI
 **Package:** `pip install lm-cloud-sync`
 
 ## Available Modules
@@ -11,7 +11,7 @@ Terraform modules for managing LogicMonitor cloud integrations.
 |--------|-------------|--------|
 | [gcp](./modules/gcp) | GCP project integrations | ✅ Available (v2.0.0) |
 | [azure](./modules/azure) | Azure Service Principal setup | ✅ Available (v2.0.5) |
-| [aws](./modules/aws) | AWS account integrations | 🚧 In Development (v2.1.0) |
+| [aws](./modules/aws) | AWS account integrations | Available (v2.1.0) |
 
 ## GCP Module
 

@@ -14,7 +14,6 @@ from rich.table import Table
 from lm_cloud_sync.cli.helpers import get_lm_client, get_settings
 from lm_cloud_sync.core.exceptions import LMCloudSyncError
 from lm_cloud_sync.core.resync import list_cloud_root_groups, resync_group
-from lm_cloud_sync.providers.gcp import GCPProvider
 
 console = Console()
 logger = logging.getLogger(__name__)
@@ -53,6 +52,8 @@ def discover(
     """
     try:
         settings = get_settings(config_path)
+        from lm_cloud_sync.providers.gcp import GCPProvider
+
         provider = GCPProvider(config=settings.gcp)
 
         with console.status("[bold green]Discovering GCP projects..."):
@@ -114,6 +115,8 @@ def status(
     """
     try:
         settings = get_settings(config_path)
+        from lm_cloud_sync.providers.gcp import GCPProvider
+
         provider = GCPProvider(config=settings.gcp)
 
         with console.status("[bold green]Fetching status..."):
@@ -198,6 +201,8 @@ def sync(
     """
     try:
         settings = get_settings(config_path)
+        from lm_cloud_sync.providers.gcp import GCPProvider
+
         provider = GCPProvider(config=settings.gcp)
 
         # Get parent group ID (CLI flag takes precedence)
@@ -244,7 +249,12 @@ def sync(
 
         # Execute sync
         if dry_run:
-            console.print("\n[yellow]DRY RUN complete - no changes made[/yellow]")
+            console.print("\n[bold yellow]DRY RUN - Would make the following changes:[/bold yellow]")
+            for pid in sorted(missing):
+                console.print(f"  [green]CREATE[/green] GCP - {pid}")
+            if delete_orphans and orphaned:
+                for pid in sorted(orphaned):
+                    console.print(f"  [red]DELETE[/red] GCP - {pid}")
             return
 
         with console.status("[bold green]Syncing..."), get_lm_client(settings) as client:
@@ -270,6 +280,9 @@ def sync(
             for pid, error in result.failed.items():
                 console.print(f"    - {pid}: {error}")
 
+        if result.has_failures:
+            sys.exit(1)
+
     except LMCloudSyncError as e:
         console.print(f"[red]Error: {e}[/red]")
         sys.exit(1)
@@ -280,7 +293,7 @@ def sync(
 
 
 @gcp.command()
-@click.argument("project_id")
+@click.option("--project-id", required=True, help="GCP project ID to delete integration for")
 @click.option("--config", "-c", "config_path", help="Path to config file")
 @click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt")
 @click.pass_context
@@ -294,11 +307,13 @@ def delete(
 
     \b
     Examples:
-        lm-cloud-sync gcp delete my-project-id
-        lm-cloud-sync gcp delete my-project-id --yes
+        lm-cloud-sync gcp delete --project-id my-project-id
+        lm-cloud-sync gcp delete --project-id my-project-id --yes
     """
     try:
         settings = get_settings(config_path)
+        from lm_cloud_sync.providers.gcp import GCPProvider
+
         provider = GCPProvider(config=settings.gcp)
 
         with get_lm_client(settings) as client:
@@ -407,6 +422,7 @@ def resync(
             table.add_column("Test Result", style="blue")
             table.add_column("Warnings", style="red")
 
+            results = []
             for group in target_groups:
                 result = resync_group(
                     client,
@@ -414,12 +430,13 @@ def resync(
                     extra_modifications=extra_modifications,
                     dry_run=dry_run,
                 )
+                results.append(result)
 
                 warnings = ""
                 if result.masked_fields:
                     warnings = f"Masked: {', '.join(result.masked_fields)}"
                 if result.error:
-                    warnings = result.error
+                    warnings = f"{warnings}; {result.error}" if warnings else result.error
 
                 test_result_str = ""
                 if result.test_results:
@@ -443,6 +460,9 @@ def resync(
 
             console.print()
             console.print(table)
+
+            if any(r.status == "failed" for r in results):
+                sys.exit(1)
 
     except LMCloudSyncError as e:
         console.print(f"[red]Error: {e}[/red]")

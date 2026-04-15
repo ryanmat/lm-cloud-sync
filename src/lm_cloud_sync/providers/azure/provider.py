@@ -133,12 +133,6 @@ class AzureProvider(CloudProviderBase):
         Raises:
             ConfigurationError: If auto_discover is False and no subscriptions configured.
         """
-        if not auto_discover:
-            raise ConfigurationError(
-                "Azure discovery requires --auto-discover flag. "
-                "Explicit subscription configuration is not yet supported."
-            )
-
         discovery = self._get_discovery()
 
         # Get filter settings from config

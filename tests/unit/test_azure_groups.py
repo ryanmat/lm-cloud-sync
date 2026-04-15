@@ -201,6 +201,31 @@ class TestListAzureGroups:
         assert "device/groups" in call_args[0]
         assert 'groupType:"Azure/AzureRoot"' in call_args[1]["params"]["filter"]
 
+    def test_list_groups_data_wrapped_response(self):
+        """Test listing groups from data-wrapped response shape."""
+        mock_client = MagicMock()
+        mock_client.get.return_value = {
+            "data": {
+                "items": [
+                    {
+                        "id": 1,
+                        "name": "Azure - sub-wrapped",
+                        "groupType": "Azure/AzureRoot",
+                        "extra": {
+                            "account": {
+                                "subscriptionIds": "sub-wrapped",
+                            }
+                        },
+                    },
+                ]
+            }
+        }
+
+        groups = list_azure_groups(mock_client)
+
+        assert len(groups) == 1
+        assert groups[0].resource_id == "sub-wrapped"
+
     def test_list_groups_empty_response(self):
         """Test listing groups when none exist."""
         mock_client = MagicMock()

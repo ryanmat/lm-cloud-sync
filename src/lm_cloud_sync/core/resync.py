@@ -213,11 +213,19 @@ def resync_group(
         if field in response:
             test_results[field] = response[field]
 
+    # Check test results for failure indicators
+    status = "success"
+    for value in test_results.values():
+        value_str = str(value).upper()
+        if "FAIL" in value_str or "ERROR" in value_str:
+            status = "warning"
+            break
+
     return ResyncResult(
         group_id=group_id,
         group_name=group_name,
         group_type=group_type,
-        status="success",
+        status=status,
         test_results=test_results,
         masked_fields=masked,
     )

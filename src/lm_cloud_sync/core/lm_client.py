@@ -148,10 +148,14 @@ class LogicMonitorClient:
                     if attempt < self._max_retries:
                         self._wait_with_backoff(attempt)
                         continue
+                    try:
+                        error_body = response.json() if response.content else {}
+                    except json_module.JSONDecodeError:
+                        error_body = {"errmsg": response.text[:500]}
                     raise RateLimitError(
                         "Rate limit exceeded",
                         status_code=429,
-                        response=response.json() if response.content else {},
+                        response=error_body,
                     )
 
                 if response.status_code in self.RETRYABLE_STATUS_CODES:
@@ -160,7 +164,10 @@ class LogicMonitorClient:
                         continue
 
                 if response.status_code >= 400:
-                    error_data = response.json() if response.content else {}
+                    try:
+                        error_data = response.json() if response.content else {}
+                    except json_module.JSONDecodeError:
+                        error_data = {"errmsg": response.text[:500]}
                     error_msg = error_data.get("errorMessage", f"HTTP {response.status_code}")
                     raise LMAPIError(
                         error_msg, status_code=response.status_code, response=error_data

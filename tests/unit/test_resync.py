@@ -401,3 +401,36 @@ class TestResyncGroup:
         assert result.status == "failed"
         assert "Not Found" in (result.error or "")
         mock_client.put.assert_not_called()
+
+    def test_failed_test_result_sets_warning_status(self) -> None:
+        """PUT response with failure in test results should set status=warning."""
+        from lm_cloud_sync.core.resync import resync_group
+
+        group = _make_group_payload()
+        put_response = copy.deepcopy(group)
+        put_response["awsTestResult"] = "FAIL: credentials invalid"
+
+        mock_client = MagicMock()
+        mock_client.get.return_value = group
+        mock_client.put.return_value = put_response
+
+        result = resync_group(mock_client, group_id=100)
+
+        assert result.status == "warning"
+        assert result.test_results["awsTestResult"] == "FAIL: credentials invalid"
+
+    def test_successful_test_result_keeps_success_status(self) -> None:
+        """PUT response with passing test results should keep status=success."""
+        from lm_cloud_sync.core.resync import resync_group
+
+        group = _make_group_payload()
+        put_response = copy.deepcopy(group)
+        put_response["awsTestResult"] = "OK: credentials valid"
+
+        mock_client = MagicMock()
+        mock_client.get.return_value = group
+        mock_client.put.return_value = put_response
+
+        result = resync_group(mock_client, group_id=100)
+
+        assert result.status == "success"

@@ -7,6 +7,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any
 
+from lm_cloud_sync.core.exceptions import LMCloudSyncError
 from lm_cloud_sync.core.lm_client import LogicMonitorClient
 from lm_cloud_sync.core.models import CloudProvider, CloudResource, LMCloudGroup, SyncResult
 
@@ -162,7 +163,7 @@ class CloudProviderBase(ABC):
                                 **kwargs,
                             )
                             result.created.append(resource.resource_id)
-                        except Exception as e:
+                        except LMCloudSyncError as e:
                             logger.exception(
                                 "Failed to create integration for %s",
                                 resource.resource_id,
@@ -182,7 +183,7 @@ class CloudProviderBase(ABC):
                             if group.id is not None:
                                 self.delete_integration(client, group.id)
                             result.deleted.append(group.resource_id)
-                        except Exception as e:
+                        except LMCloudSyncError as e:
                             logger.exception(
                                 "Failed to delete integration for %s",
                                 group.resource_id,

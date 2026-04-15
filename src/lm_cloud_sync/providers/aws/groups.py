@@ -32,7 +32,9 @@ def list_aws_groups(client: LogicMonitorClient) -> list[LMCloudGroup]:
     )
 
     groups = []
-    for item in response.get("items", []):
+    data = response.get("data", response)
+    items = data.get("items", []) if isinstance(data, dict) else []
+    for item in items:
         group = _parse_group_response(item)
         if group:
             groups.append(group)

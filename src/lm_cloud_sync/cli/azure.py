@@ -12,7 +12,6 @@ from rich.table import Table
 from lm_cloud_sync.cli.helpers import get_lm_client, get_settings
 from lm_cloud_sync.core.exceptions import LMCloudSyncError
 from lm_cloud_sync.core.resync import list_cloud_root_groups, resync_group
-from lm_cloud_sync.providers.azure import AzureProvider
 
 console = Console()
 logger = logging.getLogger(__name__)
@@ -33,7 +32,7 @@ def azure(ctx: click.Context) -> None:
 @click.option(
     "--auto-discover",
     is_flag=True,
-    required=True,
+    default=True,
     help="Use Azure Management API to discover subscriptions (required)",
 )
 @click.option("--output", "-o", type=click.Choice(["table", "json"]), default="table")
@@ -56,6 +55,8 @@ def discover(
     """
     try:
         settings = get_settings(config_path)
+        from lm_cloud_sync.providers.azure import AzureProvider
+
         provider = AzureProvider(config=settings.azure)
 
         with console.status("[bold green]Discovering Azure subscriptions..."):
@@ -122,6 +123,8 @@ def status(
     """
     try:
         settings = get_settings(config_path)
+        from lm_cloud_sync.providers.azure import AzureProvider
+
         provider = AzureProvider(config=settings.azure)
 
         with console.status("[bold green]Fetching status..."):
@@ -181,7 +184,7 @@ def status(
 @click.option(
     "--auto-discover",
     is_flag=True,
-    required=True,
+    default=True,
     help="Use Azure Management API to discover subscriptions (required)",
 )
 @click.option("--dry-run", is_flag=True, help="Preview changes without applying")
@@ -217,6 +220,8 @@ def sync(
     """
     try:
         settings = get_settings(config_path)
+        from lm_cloud_sync.providers.azure import AzureProvider
+
         provider = AzureProvider(config=settings.azure)
 
         # Get parent group ID (CLI flag takes precedence)
@@ -285,7 +290,7 @@ def sync(
                     create_missing=True,
                     delete_orphans=delete_orphans,
                     parent_id=parent_id,
-                    name_template="Azure - {resource_id}",
+                    name_template=settings.sync.group_name_template,
                     custom_properties=settings.sync.custom_properties,
                 )
 
@@ -298,6 +303,9 @@ def sync(
                     console.print(f"  Failed: [red]{len(result.failed)}[/red]")
                     for resource_id, error in result.failed.items():
                         console.print(f"    - {resource_id}: {error}")
+
+                if result.has_failures:
+                    sys.exit(1)
 
     except LMCloudSyncError as e:
         console.print(f"[red]Error: {e}[/red]")
@@ -328,6 +336,8 @@ def delete(
     """
     try:
         settings = get_settings(config_path)
+        from lm_cloud_sync.providers.azure import AzureProvider
+
         provider = AzureProvider(config=settings.azure)
 
         with get_lm_client(settings) as client:
@@ -344,7 +354,7 @@ def delete(
                 console.print(
                     f"[yellow]No integration found for Azure subscription {subscription_id}[/yellow]"
                 )
-                return
+                sys.exit(1)
 
             console.print(f"Found integration: {target.name} (ID: {target.id})")
 
@@ -449,6 +459,7 @@ def resync(
             table.add_column("Test Result", style="blue")
             table.add_column("Warnings", style="red")
 
+            results = []
             for group in target_groups:
                 result = resync_group(
                     client,
@@ -457,12 +468,13 @@ def resync(
                     credential_overrides=credential_overrides,
                     dry_run=dry_run,
                 )
+                results.append(result)
 
                 warnings = ""
                 if result.masked_fields:
                     warnings = f"Masked: {', '.join(result.masked_fields)}"
                 if result.error:
-                    warnings = result.error
+                    warnings = f"{warnings}; {result.error}" if warnings else result.error
 
                 test_result_str = ""
                 if result.test_results:
@@ -486,6 +498,9 @@ def resync(
 
             console.print()
             console.print(table)
+
+            if any(r.status == "failed" for r in results):
+                sys.exit(1)
 
     except LMCloudSyncError as e:
         console.print(f"[red]Error: {e}[/red]")

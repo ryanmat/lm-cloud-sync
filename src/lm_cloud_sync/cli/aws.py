@@ -12,7 +12,6 @@ from rich.table import Table
 from lm_cloud_sync.cli.helpers import get_lm_client, get_settings
 from lm_cloud_sync.core.exceptions import LMCloudSyncError
 from lm_cloud_sync.core.resync import list_cloud_root_groups, resync_group
-from lm_cloud_sync.providers.aws import AWSProvider
 
 console = Console()
 logger = logging.getLogger(__name__)
@@ -33,7 +32,7 @@ def aws(ctx: click.Context) -> None:
 @click.option(
     "--auto-discover",
     is_flag=True,
-    required=True,
+    default=True,
     help="Use AWS Organizations API to discover accounts (required)",
 )
 @click.option("--output", "-o", type=click.Choice(["table", "json"]), default="table")
@@ -56,6 +55,8 @@ def discover(
     """
     try:
         settings = get_settings(config_path)
+        from lm_cloud_sync.providers.aws import AWSProvider
+
         provider = AWSProvider(config=settings.aws)
 
         with console.status("[bold green]Discovering AWS accounts..."):
@@ -124,50 +125,49 @@ def status(
     """
     try:
         settings = get_settings(config_path)
+        from lm_cloud_sync.providers.aws import AWSProvider
+
         provider = AWSProvider(config=settings.aws)
 
         with console.status("[bold green]Fetching status..."):
+            accounts = provider.discover(auto_discover=True)
+            account_ids = {a.resource_id for a in accounts}
+
             with get_lm_client(settings) as client:
                 integrations = provider.list_integrations(client)
+            integration_ids = {g.resource_id for g in integrations}
+
+        synced = account_ids & integration_ids
+        missing = account_ids - integration_ids
+        orphaned = integration_ids - account_ids
 
         if output == "json":
             data = {
-                "integrations": [
-                    {
-                        "account_id": g.resource_id,
-                        "name": g.name,
-                        "lm_group_id": g.id,
-                    }
-                    for g in integrations
-                ],
-                "count": len(integrations),
+                "total_accounts": len(accounts),
+                "total_integrations": len(integrations),
+                "synced": sorted(list(synced)),
+                "missing": sorted(list(missing)),
+                "orphaned": sorted(list(orphaned)) if show_orphans else [],
             }
             console.print_json(json.dumps(data, indent=2))
         else:
-            console.print(f"\n[bold]LogicMonitor AWS Integrations: {len(integrations)}[/bold]")
-
-            if integrations:
-                table = Table(title="Existing Integrations")
-                table.add_column("Account ID", style="cyan")
-                table.add_column("LM Group Name", style="green")
-                table.add_column("LM Group ID", style="yellow")
-
-                for group in integrations:
-                    table.add_row(
-                        group.resource_id,
-                        group.name,
-                        str(group.id) if group.id else "",
-                    )
-
-                console.print(table)
-            else:
-                console.print("[yellow]No AWS integrations found in LogicMonitor[/yellow]")
-
+            console.print("\n[bold]Sync Status[/bold]")
+            console.print(f"  AWS Accounts:      {len(accounts)}")
+            console.print(f"  LM Integrations:   {len(integrations)}")
+            console.print(f"  [green]Synced:[/green]           {len(synced)}")
+            console.print(f"  [yellow]Missing:[/yellow]          {len(missing)}")
             if show_orphans:
-                console.print(
-                    "\n[dim]Note: Use 'aws discover --auto-discover' to find accounts "
-                    "and compare with integrations[/dim]"
-                )
+                console.print(f"  [red]Orphaned:[/red]         {len(orphaned)}")
+
+            if missing:
+                console.print("\n[yellow]Missing integrations (not in LM):[/yellow]")
+                for aid in sorted(missing):
+                    console.print(f"  - {aid}")
+
+            if show_orphans and orphaned:
+                console.print("\n[red]Orphaned integrations (not in AWS):[/red]")
+                for aid in sorted(orphaned):
+                    console.print(f"  - {aid}")
 
     except LMCloudSyncError as e:
         console.print(f"[red]Error: {e}[/red]")
@@ -183,7 +183,7 @@ def status(
 @click.option(
     "--auto-discover",
     is_flag=True,
-    required=True,
+    default=True,
     help="Use AWS Organizations API to discover accounts (required)",
 )
 @click.option("--dry-run", is_flag=True, help="Preview changes without applying")
@@ -220,6 +220,8 @@ def sync(
     """
     try:
         settings = get_settings(config_path)
+        from lm_cloud_sync.providers.aws import AWSProvider
+
         provider = AWSProvider(config=settings.aws)
 
         # Get parent group ID (CLI flag takes precedence)
@@ -288,7 +290,7 @@ def sync(
                     create_missing=True,
                     delete_orphans=delete_orphans,
                     parent_id=parent_id,
-                    name_template="AWS - {resource_id}",
+                    name_template=settings.sync.group_name_template,
                     custom_properties=settings.sync.custom_properties,
                 )
 
@@ -301,6 +303,9 @@ def sync(
                     console.print(f"  Failed: [red]{len(result.failed)}[/red]")
                     for resource_id, error in result.failed.items():
                         console.print(f"    - {resource_id}: {error}")
+
+                if result.has_failures:
+                    sys.exit(1)
 
     except LMCloudSyncError as e:
         console.print(f"[red]Error: {e}[/red]")
@@ -331,6 +336,8 @@ def delete(
     """
     try:
         settings = get_settings(config_path)
+        from lm_cloud_sync.providers.aws import AWSProvider
+
         provider = AWSProvider(config=settings.aws)
 
         with get_lm_client(settings) as client:
@@ -347,7 +354,7 @@ def delete(
                 console.print(
                     f"[yellow]No integration found for AWS account {account_id}[/yellow]"
                 )
-                return
+                sys.exit(1)
 
             console.print(f"Found integration: {target.name} (ID: {target.id})")
 
@@ -443,6 +450,7 @@ def resync(
             table.add_column("Test Result", style="blue")
             table.add_column("Warnings", style="red")
 
+            results = []
             for group in target_groups:
                 result = resync_group(
                     client,
@@ -450,12 +458,13 @@ def resync(
                     extra_modifications=extra_modifications,
                     dry_run=dry_run,
                 )
+                results.append(result)
 
                 warnings = ""
                 if result.masked_fields:
                     warnings = f"Masked: {', '.join(result.masked_fields)}"
                 if result.error:
-                    warnings = result.error
+                    warnings = f"{warnings}; {result.error}" if warnings else result.error
 
                 test_result_str = ""
                 if result.test_results:
@@ -479,6 +488,9 @@ def resync(
 
             console.print()
             console.print(table)
+
+            if any(r.status == "failed" for r in results):
+                sys.exit(1)
 
     except LMCloudSyncError as e:
         console.print(f"[red]Error: {e}[/red]")

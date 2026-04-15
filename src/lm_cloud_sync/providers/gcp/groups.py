@@ -32,7 +32,9 @@ def list_gcp_groups(client: LogicMonitorClient) -> list[LMCloudGroup]:
     )
 
     groups = []
-    for item in response.get("items", []):
+    data = response.get("data", response)
+    items = data.get("items", []) if isinstance(data, dict) else []
+    for item in items:
         group = _parse_group_response(item)
         if group:
             groups.append(group)
@@ -113,6 +115,11 @@ def create_gcp_group(
         if hasattr(e, "response") and isinstance(e.response, dict):
             error_detail = e.response.get("errorDetail", {})
             if isinstance(error_detail, dict) and error_detail.get("id"):
+                logger.warning(
+                    "LM API returned 400 but group was created (id=%s): %s",
+                    error_detail["id"],
+                    e,
+                )
                 response = error_detail
             elif "already exists" in str(e).lower():
                 raise GroupExistsError(

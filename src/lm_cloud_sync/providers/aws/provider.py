@@ -93,14 +93,6 @@ class AWSProvider(CloudProviderBase):
         Raises:
             ConfigurationError: If auto_discover is False and no accounts configured.
         """
-        if not auto_discover:
-            # For now, require auto_discover for AWS
-            # Future: support explicit account list in config
-            raise ConfigurationError(
-                "AWS discovery requires --auto-discover flag. "
-                "Explicit account configuration is not yet supported."
-            )
-
         discovery = self._get_discovery()
 
         # Get filter settings from config

@@ -30,6 +30,7 @@ resource "null_resource" "aws_integration" {
     account_id         = each.key
     display_name       = lookup(each.value, "display_name", each.key)
     role_name          = var.aws_role_name
+    # Required for destroy provisioner (stored in state -- use encrypted backends)
     lm_bearer_token    = var.lm_bearer_token
     lm_company         = var.lm_company
     python_command     = var.python_command

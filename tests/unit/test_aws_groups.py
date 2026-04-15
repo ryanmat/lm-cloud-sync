@@ -193,6 +193,31 @@ class TestListAWSGroups:
         assert "device/groups" in call_args[0]
         assert 'groupType:"AWS/AwsRoot"' in call_args[1]["params"]["filter"]
 
+    def test_list_groups_data_wrapped_response(self):
+        """Test listing groups from data-wrapped response shape."""
+        mock_client = MagicMock()
+        mock_client.get.return_value = {
+            "data": {
+                "items": [
+                    {
+                        "id": 1,
+                        "name": "AWS - 333333333333",
+                        "groupType": "AWS/AwsRoot",
+                        "extra": {
+                            "account": {
+                                "assumedRoleArn": "arn:aws:iam::333333333333:role/LMRole",
+                            }
+                        },
+                    },
+                ]
+            }
+        }
+
+        groups = list_aws_groups(mock_client)
+
+        assert len(groups) == 1
+        assert groups[0].resource_id == "333333333333"
+
     def test_list_groups_empty_response(self):
         """Test listing groups when none exist."""
         mock_client = MagicMock()

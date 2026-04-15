@@ -222,7 +222,8 @@ class TestSyncExitCodes:
                 return []
 
             def create_integration(self, client: Any, resource: Any, **kwargs: Any) -> Any:
-                raise RuntimeError("API connection failed")
+                from lm_cloud_sync.core.exceptions import LMAPIError
+                raise LMAPIError("API connection failed", status_code=500)
 
             def delete_integration(self, client: Any, group_id: int) -> None:
                 pass

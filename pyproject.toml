@@ -1,7 +1,7 @@
 [project]
 name = "lm-cloud-sync"
-version = "2.0.7"
-description = "Multi-cloud automation tool for LogicMonitor integrations. GCP and Azure support available, AWS coming soon."
+version = "3.0.0"
+description = "Multi-cloud automation tool for LogicMonitor integrations. Supports AWS, Azure, and GCP."
 readme = "README.md"
 license = { text = "MIT" }
 authors = [
