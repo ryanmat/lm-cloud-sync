@@ -1,8 +1,5 @@
-# Example: Azure Service Principal setup for lm-cloud-sync
-#
-# This example shows how to use the Azure module to create
-# the Service Principal and credentials needed for LogicMonitor
-# Azure cloud integration.
+# Description: Azure integration example for lm-cloud-sync.
+# Description: Shows SP-only setup and full integration with LM device groups.
 
 terraform {
   required_version = ">= 1.0"
@@ -16,6 +13,10 @@ terraform {
       source  = "hashicorp/azurerm"
       version = ">= 3.0.0"
     }
+    logicmonitor = {
+      source  = "ryanmat/logicmonitor"
+      version = ">= 1.0"
+    }
   }
 }
 
@@ -25,27 +26,36 @@ provider "azurerm" {
 
 provider "azuread" {}
 
-# Option 1: Specify subscription IDs explicitly
+provider "logicmonitor" {
+  api_id  = var.lm_api_id
+  api_key = var.lm_api_key
+  company = var.lm_company
+}
+
+# Option 1: SP setup only (use CLI for LM sync)
 module "logicmonitor_azure" {
   source = "../../modules/azure"
 
   subscription_ids = var.subscription_ids
 
-  # Optional settings
   application_name         = var.application_name
   enable_monitoring_reader = var.enable_monitoring_reader
   enable_log_analytics     = var.enable_log_analytics
 }
 
-# Option 2: Auto-discover all subscriptions in tenant
-# data "azurerm_subscriptions" "all" {}
-#
-# module "logicmonitor_azure_all" {
+# Option 2: SP setup + LM device groups in one module
+# module "logicmonitor_azure_full" {
 #   source = "../../modules/azure"
-#   subscription_ids = [for s in data.azurerm_subscriptions.all.subscriptions : s.subscription_id]
+#
+#   subscription_ids = var.subscription_ids
+#
+#   # Enable LM integration -- creates device groups for each subscription
+#   enable_lm_integration = true
+#   lm_api_id             = var.lm_api_id
+#   lm_api_key            = var.lm_api_key
+#   lm_company            = var.lm_company
 # }
 
-# Outputs for lm-cloud-sync CLI
 output "tenant_id" {
   description = "Azure AD tenant ID"
   value       = module.logicmonitor_azure.tenant_id

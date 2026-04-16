@@ -1,6 +1,5 @@
-# Azure Service Principal for LogicMonitor Cloud Integration
-# This module creates the Azure AD application, service principal, and role assignments
-# required for LogicMonitor to monitor Azure subscriptions.
+# Description: Azure LM Cloud Sync Terraform module.
+# Description: Creates Azure AD SP + role assignments, and optionally LM device groups.
 
 terraform {
   required_version = ">= 1.0.0"
@@ -14,10 +13,15 @@ terraform {
       source  = "hashicorp/azurerm"
       version = ">= 3.0.0"
     }
+    logicmonitor = {
+      source  = "ryanmat/logicmonitor"
+      version = ">= 1.0"
+    }
   }
 }
 
-# Data source to get current Azure context
+# --- Azure AD Infrastructure (Service Principal + Role Assignments) ---
+
 data "azurerm_subscription" "current" {}
 
 data "azuread_client_config" "current" {}
@@ -26,10 +30,8 @@ data "azuread_client_config" "current" {}
 resource "azuread_application" "logicmonitor" {
   display_name = var.application_name
 
-  # Application owners
   owners = [data.azuread_client_config.current.object_id]
 
-  # API permissions for Azure management
   required_resource_access {
     resource_app_id = "797f4846-ba00-4fd7-ba43-dac1f8f63013" # Azure Service Management
 
@@ -71,7 +73,6 @@ resource "azurerm_role_assignment" "reader" {
   role_definition_name = "Reader"
   principal_id         = azuread_service_principal.logicmonitor.object_id
 
-  # Skip if principal doesn't exist yet (eventual consistency)
   skip_service_principal_aad_check = true
 }
 
@@ -95,4 +96,37 @@ resource "azurerm_role_assignment" "log_analytics_reader" {
   principal_id         = azuread_service_principal.logicmonitor.object_id
 
   skip_service_principal_aad_check = true
+}
+
+# --- LogicMonitor Integration (optional, gated by enable_lm_integration) ---
+
+# Create an LM device group for each Azure subscription
+resource "logicmonitor_device_group" "azure_subscription" {
+  for_each = var.enable_lm_integration ? local.subscription_map : {}
+
+  name        = replace(replace(var.group_name_template, "{subscription_id}", each.key), "{display_name}", each.value.display_name)
+  parent_id   = var.lm_parent_group_id
+  description = each.value.display_name
+  group_type  = "Azure/AzureRoot"
+
+  custom_properties = local.custom_props
+
+  extra = jsonencode({
+    account = {
+      tenantId        = data.azuread_client_config.current.tenant_id
+      clientId        = azuread_application.logicmonitor.client_id
+      secretKey       = azuread_application_password.logicmonitor.value
+      subscriptionIds = each.key
+      collectorId     = -4
+      schedule        = var.schedule
+    }
+    default  = local.default_config
+    services = local.service_config
+  })
+
+  # Ensure role assignments exist before creating LM integrations
+  depends_on = [
+    azurerm_role_assignment.reader,
+    azurerm_role_assignment.monitoring_reader,
+  ]
 }

@@ -1,4 +1,5 @@
-# Outputs for Azure LogicMonitor Service Principal module
+# Description: Output values for the Azure LM Cloud Sync Terraform module.
+# Description: Exposes SP credentials, subscription info, and LM group IDs.
 
 output "tenant_id" {
   description = "Azure AD tenant ID"
@@ -41,6 +42,13 @@ output "lm_cloud_sync_env" {
   sensitive = true
 }
 
+output "group_ids" {
+  description = "Map of subscription ID to LM device group ID (empty when enable_lm_integration = false)"
+  value = {
+    for k, v in logicmonitor_device_group.azure_subscription : k => v.id
+  }
+}
+
 output "setup_instructions" {
   description = "Instructions for using these credentials with lm-cloud-sync"
   value       = <<-EOT
@@ -54,10 +62,10 @@ output "setup_instructions" {
        export AZURE_CLIENT_SECRET="$(terraform output -raw client_secret)"
 
     2. Run discovery:
-       lm-cloud-sync azure discover --auto-discover
+       lm-cloud-sync azure discover
 
     3. Sync to LogicMonitor:
-       lm-cloud-sync azure sync --auto-discover --dry-run
-       lm-cloud-sync azure sync --auto-discover --yes
+       lm-cloud-sync azure sync --dry-run
+       lm-cloud-sync azure sync --yes
   EOT
 }
