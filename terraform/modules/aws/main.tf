@@ -1,82 +1,49 @@
-# LogicMonitor AWS Integration Module
-#
-# Creates LogicMonitor device groups for AWS accounts using lm-cloud-sync.
-#
-# Prerequisites:
-# 1. lm-cloud-sync installed (pip install lm-cloud-sync)
-# 2. IAM role created in each target AWS account with LM trust policy
-# 3. LogicMonitor Bearer token with API access
+# Description: AWS LM Cloud Sync Terraform module.
+# Description: Creates LogicMonitor device groups for AWS accounts using the ryanmat/logicmonitor provider.
 
 terraform {
   required_version = ">= 1.0"
+
+  required_providers {
+    logicmonitor = {
+      source  = "ryanmat/logicmonitor"
+      version = ">= 1.0"
+    }
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">= 5.0"
+    }
+  }
 }
 
-locals {
-  # Load accounts from YAML file if provided, otherwise use inline list
-  accounts_from_file = var.accounts_file != "" ? yamldecode(file(var.accounts_file))["accounts"] : []
-
-  # Combine accounts from both sources
-  all_accounts = length(var.accounts) > 0 ? var.accounts : local.accounts_from_file
-
-  # Convert to map for for_each
-  accounts = { for account in local.all_accounts : account.account_id => account }
+# Auto-discover all accounts in the AWS Organization.
+# Only runs when auto_discover is true. Requires organizations:ListAccounts permission.
+data "aws_organizations_organization" "org" {
+  count = var.auto_discover ? 1 : 0
 }
 
-# Create AWS integration for each account
-resource "null_resource" "aws_integration" {
+# Get the LM external ID for cross-account IAM role assumption
+data "logicmonitor_aws_external_id" "this" {}
+
+# Create an LM device group for each AWS account
+resource "logicmonitor_device_group" "aws_account" {
   for_each = local.accounts
 
-  triggers = {
-    account_id         = each.key
-    display_name       = lookup(each.value, "display_name", each.key)
-    role_name          = var.aws_role_name
-    # Required for destroy provisioner (stored in state -- use encrypted backends)
-    lm_bearer_token    = var.lm_bearer_token
-    lm_company         = var.lm_company
-    python_command     = var.python_command
-    script_delete_path = "${path.module}/scripts/delete_integration.py"
-  }
+  name        = replace(replace(var.group_name_template, "{account_id}", each.key), "{display_name}", lookup(each.value, "display_name", each.key))
+  parent_id   = var.lm_parent_group_id
+  description = lookup(each.value, "display_name", each.key)
+  group_type  = "AWS/AwsRoot"
 
-  provisioner "local-exec" {
-    command = <<-EOT
-      ${var.python_command} ${path.module}/scripts/create_integration.py \
-        --account-id "${each.key}" \
-        --display-name "${lookup(each.value, "display_name", each.key)}" \
-        --role-name "${var.aws_role_name}" \
-        --parent-group-id ${var.lm_parent_group_id}
-    EOT
+  custom_properties = local.custom_props
 
-    environment = {
-      LM_BEARER_TOKEN = var.lm_bearer_token
-      LM_COMPANY      = var.lm_company
+  extra = jsonencode({
+    account = {
+      assumedRoleArn = "arn:aws:iam::${each.key}:role/${var.aws_role_name}"
+      externalId     = data.logicmonitor_aws_external_id.this.external_id
+      collectorId    = -2
+      schedule       = var.schedule
     }
-  }
-
-  provisioner "local-exec" {
-    when    = destroy
-    command = <<-EOT
-      ${self.triggers.python_command} ${self.triggers.script_delete_path} \
-        --account-id "${self.triggers.account_id}"
-    EOT
-
-    environment = {
-      LM_BEARER_TOKEN = self.triggers.lm_bearer_token
-      LM_COMPANY      = self.triggers.lm_company
-    }
-
-    on_failure = continue
-  }
-}
-
-# Helper to run lm-cloud-sync discover for auto-discovery
-resource "null_resource" "discover_accounts" {
-  count = var.auto_discover ? 1 : 0
-
-  triggers = {
-    always_run = timestamp()
-  }
-
-  provisioner "local-exec" {
-    command = "lm-cloud-sync aws discover --auto-discover --output json > ${path.module}/discovered_accounts.json"
-  }
+    default  = local.default_config
+    services = local.service_config
+  })
 }

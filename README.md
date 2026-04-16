@@ -277,22 +277,23 @@ sync:
 ## Terraform
 
 See [terraform/](./terraform/) for Terraform modules (GCP, AWS, Azure).
-Terraform modules use bearer token auth and wrap the Python library via `local-exec` provisioners.
+Modules use the [`ryanmat/logicmonitor`](https://github.com/ryanmat/rm-logicmonitor-terraform-provider) provider with native cloud data sources for auto-discovery.
 
 ```hcl
 module "gcp_integrations" {
   source = "github.com/ryanmat/lm-cloud-sync//terraform/modules/gcp"
 
+  lm_api_id                    = var.lm_api_id
+  lm_api_key                   = var.lm_api_key
   lm_company                   = "your-company"
-  lm_bearer_token              = var.lm_bearer_token
   gcp_service_account_key_path = "/path/to/service-account.json"
 
-  projects = [
-    { project_id = "my-project-1", display_name = "Project 1" },
-    { project_id = "my-project-2", display_name = "Project 2" },
-  ]
+  # Static list or auto-discover from org
+  gcp_org_id = "123456789012"
 }
 ```
+
+For Azure, use Terraform for SP setup and the CLI for LM integration sync (see [terraform/README.md](./terraform/README.md) for details).
 
 ## Development
 

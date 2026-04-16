@@ -1,5 +1,5 @@
-# Description: Variables for the GCP-only Terraform example.
-# Description: LM API credentials and GCP service account key path.
+# Description: Variables for the AWS-only Terraform example.
+# Description: LM API credentials and AWS role configuration.
 
 variable "lm_api_id" {
   description = "LogicMonitor API access ID"
@@ -23,7 +23,8 @@ variable "lm_parent_group_id" {
   default     = 1
 }
 
-variable "gcp_service_account_key_path" {
-  description = "Path to GCP service account key JSON"
+variable "aws_role_name" {
+  description = "IAM role name to assume in each AWS account"
   type        = string
+  default     = "LogicMonitorRole"
 }
